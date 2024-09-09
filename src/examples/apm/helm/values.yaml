@@ -2,7 +2,7 @@ anchors:
   version: &elasticVersion 8.13.4
   name: &clusterName apm
   namespace: &namespace apm
-  publicBaseUrl: &publicBaseUrl https://apm.dev.kibana.derivco.com
+  publicBaseUrl: &publicBaseUrl https://apm.dev.kibana.YOUR_DOMAIN.com
   environment: &environment dev
   monitoring: &monitoring
     metrics:

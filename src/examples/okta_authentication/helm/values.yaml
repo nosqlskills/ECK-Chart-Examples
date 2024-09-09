@@ -2,7 +2,7 @@ anchors:
   version: &elasticVersion 8.13.4
   name: &clusterName okta
   namespace: &namespace okta
-  publicBaseUrl: &publicBaseUrl https://okta.dev.kibana.derivco.com
+  publicBaseUrl: &publicBaseUrl https://okta.dev.kibana.YOUR_DOMAIN.com
   environment: &environment dev
   monitoring: &monitoring
     metrics:

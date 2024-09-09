@@ -2,7 +2,7 @@ anchors:
   version: &elasticVersion 8.13.4
   name: &clusterName monitoring
   namespace: &namespace observability # Lots of systems use the monitoring namespace. Let's use observability.
-  publicBaseUrl: &publicBaseUrl https://monitoring.dev.kibana.derivco.com
+  publicBaseUrl: &publicBaseUrl https://monitoring.dev.kibana.YOUR_DOMAIN.com
   environment: &environment dev
   monitoring: &monitoring
     metrics:

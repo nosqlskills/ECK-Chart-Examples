@@ -2,7 +2,7 @@ anchors:
   version: &elasticVersion 8.13.4
   name: &clusterName fleet
   namespace: &namespace fleet
-  publicBaseUrl: &publicBaseUrl https://fleet.dev.kibana.derivco.com
+  publicBaseUrl: &publicBaseUrl https://fleet.dev.kibana.YOUR_DOMAIN.com
   environment: &environment dev
   fleetServerName: &fleetServerName fleet-fleet-server
   monitoring: &monitoring

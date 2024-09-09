@@ -2,7 +2,7 @@ anchors:
   version: &elasticVersion 8.13.4
   name: &clusterName ccs
   namespace: &namespace ccs
-  publicBaseUrl: &publicBaseUrl https://ccs.dev.kibana.derivco.com
+  publicBaseUrl: &publicBaseUrl https://ccs.dev.kibana.YOUR_DOMAIN.com
   environment: &environment dev
   monitoring: &monitoring
     metrics:
