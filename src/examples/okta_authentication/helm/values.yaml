@@ -1,0 +1,133 @@
+anchors:
+  version: &elasticVersion 8.13.4
+  name: &clusterName okta
+  namespace: &namespace okta
+  publicBaseUrl: &publicBaseUrl https://okta.dev.kibana.derivco.com
+  environment: &environment dev
+  monitoring: &monitoring
+    metrics:
+      elasticsearchRefs:
+      - name: monitoring
+        namespace: observability
+    logs:
+      elasticsearchRefs:
+      - name: monitoring
+        namespace: observability
+  saml: &samlconfig
+    saml1:
+      order: 2
+      attributes.principal: nameid
+      attributes.groups: groups
+      idp.metadata.path: https://YOUR_DOMAIN_PREFIX/app/YOUR_ID/sso/saml/metadata
+      idp.entity_id: http://www.okta.com/YOUR_ID
+      sp.entity_id: https://THIS_CLUSTERS_FQDN/
+      sp.acs: https://THIS_CLUSTERS_FQDN/api/security/v1/saml
+      sp.logout: https://THIS_CLUSTERS_FQDN/logout
+
+eck-stack:
+  enabled: true
+
+  eck-elasticsearch:
+    enabled: true
+    fullnameOverride: *clusterName
+    version: *elasticVersion
+    monitoring: *monitoring
+    http:
+      service:
+        spec:
+          type: ClusterIP
+    podDisruptionBudget: {}
+    auth:
+      fileRealm:
+      - secretName: logstash-writer-user
+      - secretName: terraform-user
+      roles:
+      - secretName: logstash-writer-role # you should load this into k8s a secure way, but the extra-config chart will deploy this for you as a start
+      - secretName: terraform-user-role # you should load this into k8s a secure way, but the extra-config chart will deploy this for you as a start
+    nodeSets:
+    - name: default
+      count: 3
+      podTemplate:
+        spec:
+          containers:
+          - name: elasticsearch
+            resources:
+              requests:
+                memory: 2Gi
+                cpu: '2'
+              limits:
+                memory: 2Gi
+                cpu: '2'
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    elasticsearch.k8s.elastic.co/cluster-name: *clusterName
+                    common.k8s.elastic.co/type: elasticsearch
+                topologyKey: topology.kubernetes.io/hostname
+      config:
+        xpack.security.authc.realms:
+          saml: *samlconfig
+        xpack.monitoring.collection.enabled: false
+        xpack.notification.email.account:
+          standard_account:
+            profile: standard
+            email_defaults:
+                from: ccs@your_domain.com
+            smtp:
+                auth: false
+                starttls.enable: false
+                host: 1.2.3.4
+                port: 25
+        xpack.http.ssl.verification_mode: none
+      volumeClaimTemplates:
+      - metadata:
+          name: elasticsearch-data # Do not change this name unless you set up a volume mount for the data path.
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 8Gi
+          storageClassName: default
+
+  eck-kibana:
+    enabled: true
+    fullnameOverride: *clusterName
+    spec:
+      podTemplate:
+        spec:
+          containers:
+          - name: kibana
+            resources:
+              requests:
+                memory: 2Gi
+                cpu: '1'
+              limits:
+                memory: 2Gi
+                cpu: '1'
+      version: *elasticVersion
+      count: 2
+      elasticsearchRef:
+        name: *clusterName
+      secureSettings:
+      - secretName: encryption-secrets
+      config:
+        xpack.security.authc.providers:
+          saml.saml1:
+            order: 1
+            realm: "saml1"
+            description: "Log in using Okta"
+            icon: "https://www.okta.com/sites/default/files/Dev_Logo-02_Large.png"
+          basic.basic1:
+            order: 2
+        telemetry.allowChangingOptInStatus: false
+        telemetry.optIn: false
+        server.publicBaseUrl: *publicBaseUrl
+
+extra-config:
+  enabled: true
+
+  environment: *environment
+  clusterName: *clusterName

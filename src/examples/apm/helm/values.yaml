@@ -1,0 +1,154 @@
+anchors:
+  version: &elasticVersion 8.13.4
+  name: &clusterName apm
+  namespace: &namespace apm
+  publicBaseUrl: &publicBaseUrl https://apm.dev.kibana.derivco.com
+  environment: &environment dev
+  monitoring: &monitoring
+    metrics:
+      elasticsearchRefs:
+      - name: monitoring
+        namespace: observability
+    logs:
+      elasticsearchRefs:
+      - name: monitoring
+        namespace: observability
+
+eck-stack:
+  enabled: true
+
+  eck-elasticsearch:
+    enabled: true
+    fullnameOverride: *clusterName
+    version: *elasticVersion
+    http:
+      service:
+        spec:
+          type: ClusterIP
+    monitoring: *monitoring
+    podDisruptionBudget: {}
+    auth:
+      fileRealm:
+      - secretName: logstash-writer-user
+      - secretName: terraform-user
+      roles:
+      - secretName: logstash-writer-role # you should load this into k8s a secure way, but the extra-config chart will deploy this for you as a start
+      - secretName: terraform-user-role # you should load this into k8s a secure way, but the extra-config chart will deploy this for you as a start
+    nodeSets:
+    - name: default
+      count: 3
+      podTemplate:
+        spec:
+          containers:
+          - name: elasticsearch
+            resources:
+              requests:
+                memory: 2Gi
+                cpu: '2'
+              limits:
+                memory: 2Gi
+                cpu: '2'
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    elasticsearch.k8s.elastic.co/cluster-name: *clusterName
+                    common.k8s.elastic.co/type: elasticsearch
+                topologyKey: topology.kubernetes.io/hostname
+      config:
+        xpack.monitoring.collection.enabled: true
+      volumeClaimTemplates:
+      - metadata:
+          name: elasticsearch-data # Do not change this name unless you set up a volume mount for the data path.
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 8Gi
+          storageClassName: default
+
+  eck-kibana:
+    enabled: true
+    fullnameOverride: *clusterName
+    spec:
+      podTemplate:
+        spec:
+          containers:
+          - name: kibana
+            resources:
+              requests:
+                memory: 2Gi
+                cpu: '1'
+              limits:
+                memory: 2Gi
+                cpu: '1'
+      version: *elasticVersion
+      count: 2
+      elasticsearchRef:
+        name: *clusterName
+      secureSettings:
+      - secretName: encryption-secret
+      config:
+        telemetry.allowChangingOptInStatus: false
+        telemetry.optIn: false
+        server.publicBaseUrl: *publicBaseUrl
+
+  eck-apm-server:
+    enabled: true
+    fullnameOverride: *clusterName
+    version: *elasticVersion
+    count: 2
+    elasticsearchRef:
+      name: *clusterName
+    config:
+      logging:
+        level: warning  # No need to ingest success logs, these can be quite a lot.
+      queue:
+        mem:
+          events: 102400
+      apm-server:
+        max_event_size: 1457600
+        max_header_size: 485760
+        auth:
+          api_key:
+            enabled: true
+      monitoring:
+        enabled: true
+        elasticsearch:
+          hosts: ["https://monitoring-es-internal-http.observability.svc.cluster.local:9200"] # set to your monitoring clusters clusterIP service
+          #api_key:  alternative_api_key==
+          username: monitoring_write_service
+          password: change_me
+          ssl:
+            verification_mode: none
+      output:
+        elasticsearch:
+          workers: 10
+          bulk_max_size: 10240
+          flush_bytes: 2MB
+          flush_interval: 5s
+    podTemplate:
+      spec:
+        containers:
+        - name: apm-server
+          resources:
+            requests:
+              memory: "16Gi"
+              cpu: "2"
+            limits:
+              memory: "16Gi"
+              cpu: "2"
+    http:
+      service:
+        spec:
+          type: LoadBalancer
+          #externalTrafficPolicy: Local Set to local if you want traffic evenly spread to k8s and don't mind an extra hop. reduces k8s reconciles via cloud controller.
+          #consider using an l7 ingress instead to get better load balancing when this starts scaling up, otherwise you will begin to see hot spots.
+
+extra-config:
+  enabled: true
+
+  environment: *environment
+  clusterName: *clusterName

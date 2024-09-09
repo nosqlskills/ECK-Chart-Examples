@@ -1,0 +1,13 @@
+apiVersion: v2
+name: monitoring
+version: 0.0.1
+description: 'A Helm chart for deploying all casinos as a single chart as tgz (we build them with helm package)'
+dependencies:
+- name: eck-stack
+  repository: "helm.elastic.co"
+  version: 0.10.0
+  condition: eck-stack.enabled
+- name: extra-config
+  repository: "file://../charts/custom/extra-config"
+  version: 0.0.1
+  condition: extra-config.enabled
